@@ -1,0 +1,23 @@
+## Optional: enable the ESP web server. Sometimes gives mhi_ac_ctrl_core.loop error: -2
+## dont use when bluetooth is active, see warning on https://esphome.io/components/bluetooth_proxy.html
+web_server:
+  port: 80
+  version: 3
+  include_internal: true
+  ota: false
+  local: true
+  sorting_groups:
+    - id: Control
+      name: "${control}"
+      sorting_weight: -30
+    - id: Operation
+      name: "${operation}"
+      sorting_weight: -20
+    - id: Status
+      name: "${status}"
+      sorting_weight: -10
+
+# Disable logging mhi_ac_ctrl: ERROR
+logger:
+  logs:
+    mhi_ac_ctrl: ERROR  ## to remove mhi_ac_ctrl_core.loop error: -2 - warnings

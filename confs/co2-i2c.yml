@@ -1,0 +1,112 @@
+## Optional: i2c port for extra room CO2 sensor / SKU: U103 / SKU: U104
+## https://shop.m5stack.com/products/co2-unit-with-temperature-and-humidity-sensor-scd40
+## https://shop.m5stack.com/products/co2l-unit-with-temperature-and-humidity-sensor-scd41
+i2c:
+  - id: bus_a
+    sda: GPIO2
+    scl: GPIO1
+
+sensor:
+  - platform: scd4x
+    co2:
+      name: ${ext_co2}
+      id: room_co2
+      device_class: carbon_dioxide
+      state_class: measurement 
+      on_value:
+        - component.update: co2_classification
+      #icon: mdi:water-percent
+    humidity:
+      name: ${ext_humidity}
+      id: room_rh
+      device_class: humidity
+      state_class: measurement 
+      accuracy_decimals: 1
+      icon: mdi:water-percent
+    temperature:
+      name: ${ext_temperature}
+      id: room_temp
+      device_class: temperature
+      state_class: measurement 
+      accuracy_decimals: 2
+      icon: mdi:thermometer
+#    temperature_offset: "4.2°C"
+#    measurement_mode: low_power_periodic
+    i2c_id: bus_a
+    address: 0x62
+    update_interval: 30s
+    automatic_self_calibration: False
+
+  - platform: template
+    name: ${ext_vpd}
+    icon: mdi:gauge
+    id: gr2_ace_vpd
+    lambda: |-
+          return (((100 - id(room_rh).state) / 100) * (0.6108 * 2.718281828459045 * (17.27 * ((id(room_temp).state)) / (((id(room_temp).state)) + 237.3))));
+    update_interval: 30s
+    unit_of_measurement: kPa
+    accuracy_decimals: 2
+    filters:
+      - filter_out: nan
+
+text_sensor:
+  - platform: template
+    name: ${ext_co2_classification}
+    id: co2_classification
+    icon: "mdi:checkbox-marked-circle-outline"
+    lambda: |-
+      auto co2_ = int(id(room_co2).state);
+      if (co2_ < 0) {
+        // No CO2 sensor.
+        return {"${ext_unknown}"};
+      }
+      if (co2_ <= 800) {
+        return {"${ext_excellent}"};
+      }
+      else if (co2_ <= 1200) {
+        return {"${ext_good}"};
+      }
+      else if (co2_ <= 1500) {
+        return {"${ext_slightly_high}"};
+      }
+      else if (co2_ <= 1800) {
+        return {"${ext_moderately_high}"};
+      }
+      else if (co2_ <= 2500) {
+        return {"${ext_very_high}"};
+      }
+      else if (co2_ <= 4000) {
+        return {"${ext_get_out}"};
+      }
+      else {
+        // ESP_LOGD("co2-classification", "CO2 not yet established: %s", id(static_co2).state);
+        return {"unknown"};
+      }
+    update_interval: never
+
+switch:
+  - platform: template
+    id: co2_switch
+    name: Led switch
+    optimistic: True
+    restore_mode: RESTORE_DEFAULT_ON 
+    lambda: return id(co2_switch).state;
+    turn_on_action:
+      - light.turn_on:
+          id: led
+          brightness: !lambda |-
+            // output value must be in range 0 - 1.0
+            return id(led_brightness).state / 100.0;
+    turn_off_action:
+      - light.turn_off:
+          id: led
+
+button:
+  - platform: template
+    name: "${ext_co2_manual_calibration} (only in fresh air for at least 20min)"
+    id: push_button
+    entity_category: config
+    on_press:
+      then:
+      - scd4x.perform_forced_calibration:
+          value: 419

@@ -1,0 +1,186 @@
+## Optional: i2c port for extra room ENV PRO sensor
+## https://shop.m5stack.com/products/env-pro-unit-with-temperature-humidity-pressure-and-gas-sensor-bme688
+i2c:
+  - id: bus_a
+    sda: GPIO2
+    scl: GPIO1
+
+bme68x_bsec2_i2c:
+  model: bme688
+  state_save_interval: 5min
+  address: 0x77
+
+sensor:
+  - platform: bme68x_bsec2
+    temperature:
+      name: ${ext_temperature}
+      id: room_temperature
+      device_class: temperature
+      state_class: measurement 
+      filters:
+        - median
+      icon: mdi:water-percent
+    pressure:
+      name: ${ext_atm_pressure}
+      id: room_pressure
+      device_class: atmospheric_pressure
+      state_class: measurement 
+      filters:
+        - median
+      icon: mdi:thermometer-lines
+    humidity:
+      name:  ${ext_humidity}
+      id: room_humidity
+      device_class: humidity
+      state_class: measurement 
+      filters:
+        - median
+      icon: mdi:water-percent
+    iaq:
+      name: ${ext_iaq}
+      id: iaq
+      device_class: aqi
+      state_class: measurement
+      filters:
+        - median
+      on_value:
+        - component.update: iaq_classification
+    iaq_static:
+      name: ${ext_static_iaq}
+      id: static_iaq
+      device_class: aqi
+      state_class: measurement
+      filters:
+        - median
+      on_value:
+        - component.update: static_iaq_classification
+    co2_equivalent:
+      name: ${ext_co2_equivalent}
+      filters:
+        - median
+    breath_voc_equivalent:
+      name: ${ext_breath_voc_equivalent}
+      filters:
+        - median
+    gas_resistance:
+      # Gas resistance in Ω
+      name: ${ext_gas_resistance}
+      filters:
+        - median
+
+  - platform: template
+    id: room_dewpoint
+    name: ${ext_dewpoint}
+    device_class: temperature
+    state_class: measurement 
+    lambda: |-
+        return (243.5*(log(id(room_humidity).state/100)+((17.67*id(room_temperature).state)/
+        (243.5+id(room_temperature).state)))/(17.67-log(id(room_humidity).state/100)-
+        ((17.67*id(room_temperature).state)/(243.5+id(room_temperature).state))));
+    unit_of_measurement: °C
+    update_interval: 30s
+    icon: 'mdi:thermometer-water'
+
+text_sensor:
+  - platform: template
+    name: ${ext_iaq_classification}
+    id: iaq_classification
+    icon: "mdi:checkbox-marked-circle-outline"
+    lambda: |-
+      auto iaq_ = int(id(iaq).state);
+      if (iaq_ < 0) {
+        // No IAQ sensor.
+        return {"ext_unknown"};
+      }
+      if (iaq_ <= 50) {
+        return {"ext_excellent"};
+      }
+      else if (iaq_ <= 100) {
+        return {"ext_good"};
+      }
+      else if (iaq_ <= 150) {
+        return {"ext_lightly_polluted"};
+      }
+      else if (iaq_ <= 200) {
+        return {"ext_moderately_polluted"};
+      }
+      else if (iaq_ <= 250) {
+        return {"ext_heavily_polluted"};
+      }
+      else if (iaq_ <= 350) {
+        return {"ext_severely_polluted"};
+      }
+      else if (iaq_ <= 500) {
+        return {"ext_extremely_polluted"};
+      }
+      else {
+        // ESP_LOGD("iaq-classification", "IAQ not yet established: %s", id(static_iaq).state);
+        return {"unknown"};
+      }
+    update_interval: never
+
+  - platform: template
+    name: ${ext_static_iaq_classification}
+    id: static_iaq_classification
+    icon: "mdi:checkbox-marked-circle-outline"
+    lambda: |-
+      auto iaq_ = int(id(static_iaq).state);
+      if (iaq_ < 0) {
+        // No IAQ sensor.
+        return {"${ext_unknown}"};
+      }
+      if (iaq_ <= 50) {
+        return {"${ext_excellent}"};
+      }
+      else if (iaq_ <= 100) {
+        return {"${ext_good}"};
+      }
+      else if (iaq_ <= 150) {
+        return {"${ext_lightly_polluted}"};
+      }
+      else if (iaq_ <= 200) {
+        return {"${ext_moderately_polluted}"};
+      }
+      else if (iaq_ <= 250) {
+        return {"${ext_heavily_polluted}"};
+      }
+      else if (iaq_ <= 350) {
+        return {"${ext_severely_polluted}"};
+      }
+      else if (iaq_ <= 500) {
+        return {"${ext_extremely_polluted}"};
+      }
+      else {
+        // ESP_LOGD("iaq-classification", "IAQ not yet established: %s", id(static_iaq).state);
+        return {"unknown"};
+      }
+    update_interval: never
+
+  - platform: bme68x_bsec2
+    iaq_accuracy: 
+      name: ${ext_iaq_accuracy}
+
+## Override the room temperature from AC with external value from sensor connected to I2C grove port
+select:
+  - id: update_temp_i2c
+    name: ${ext_temperature_control}
+    icon: mdi:chart-bell-curve-cumulative
+    platform: template
+    options:
+      - "${ext_mhi}"
+      - "${ext_external}"
+    initial_option: "${ext_mhi}"
+    optimistic: true
+    restore_value: true
+    entity_category: config
+    update_interval: never
+
+interval:
+  - interval: 30s
+    then:
+      - if:
+          condition:
+            - lambda: 'return id(update_temp_i2c).state == "${ext_external}";'
+          then:
+            - lambda: |-
+                return ((MhiAcCtrl*)id(${deviceid}))->set_room_temperature(id(room_temperature).state);
