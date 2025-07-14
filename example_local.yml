@@ -53,13 +53,13 @@ packages:
 
 ## remote source files
 #external_components:
-#  - source: github://fonske/MHI-AC-Ctrl-ESPHome@atom
+#  - source: github://fonske/MHI-AC-Ctrl@atom
 #    components: [ MhiAcCtrl ]
 
 ## remote options
 #packages:
 #  remote_package:
-#    url: https://github.com/fonske/MHI-AC-Ctrl-ESPHome/
+#    url: https://github.com/fonske/MHI-AC-Ctrl/
 #    ref: atom
 #    refresh: always
 #            confs/atoms3-lite.yml,
