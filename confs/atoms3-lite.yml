@@ -1,15 +1,8 @@
 ## used Atom is a S3 lite version: See: https://shop.m5stack.com/products/atoms3-dev-kit-w-0-85-inch-screen
 esp32:
   board: esp32-s3-devkitc-1
+  variant: esp32s3
   flash_size: 8MB
-## Atom S3 lite  
-  framework:
-    type: esp-idf
-    version: recommended
-    # Custom sdkconfig options
-    sdkconfig_options:
-      COMPILER_OPTIMIZATION_SIZE: y
-      CONFIG_BT_ENABLED: n
 
 esphome:
   on_boot:
