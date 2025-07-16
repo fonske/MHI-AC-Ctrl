@@ -35,16 +35,14 @@ text_sensor:
     name: ESPHome Version
     entity_category: diagnostic
     hide_timestamp: true
-    update_interval: 600s
 
   - platform: wifi_info
     ip_address:
       name: IP
       icon: mdi:ip
       entity_category: diagnostic
-      update_interval: 600s
+
     ssid:
       name: SIDD
       icon: mdi:wifi
       entity_category: diagnostic
-      update_interval: 600s
